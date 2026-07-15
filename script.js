@@ -47,58 +47,6 @@ async function fetchServerStatus(){
   }
 }
 
-// ---------- CLOUDFLARE TURNSTILE ----------
-// Sitekey asli dari dashboard Cloudflare (Turnstile > Add Widget).
-const TURNSTILE_SITE_KEY = '0x4AAAAAAD1pla33ICFMb9fU';
-
-let voteVerified = false;
-let voteWidgetId = null;
-let modalWidgetId = null;
-
-function turnstileReady(fn){
-  if(window.turnstile){ fn(); }
-  else { window.addEventListener('load', ()=> window.turnstile ? fn() : setTimeout(()=>turnstileReady(fn), 300)); }
-}
-
-function renderVoteTurnstile(){
-  turnstileReady(()=>{
-    const el = document.getElementById('voteTurnstile');
-    if(!el || voteWidgetId !== null) return;
-    voteWidgetId = window.turnstile.render(el, {
-      sitekey: TURNSTILE_SITE_KEY,
-      theme: 'light',
-      callback: ()=>{
-        voteVerified = true;
-        document.getElementById('voteTurnstileHint').classList.remove('show');
-      },
-      'expired-callback': ()=>{ voteVerified = false; },
-    });
-  });
-}
-
-document.getElementById('voteBtn').addEventListener('click', (e)=>{
-  if(!voteVerified){
-    e.preventDefault();
-    document.getElementById('voteTurnstileHint').classList.add('show');
-  }
-});
-
-function renderModalTurnstile(){
-  turnstileReady(()=>{
-    const el = document.getElementById('modalTurnstile');
-    if(!el) return;
-    modalWidgetId = window.turnstile.render(el, {
-      sitekey: TURNSTILE_SITE_KEY,
-      theme: 'light',
-      callback: (token)=>{
-        flow.turnstileToken = token;
-        checkNicknameStepReady();
-      },
-      'expired-callback': ()=>{ flow.turnstileToken = null; checkNicknameStepReady(); },
-    });
-  });
-}
-
 // ---------- IP COPY ----------
 function copyIP(){
   const ip = "play.nextorasmp.net";
@@ -225,7 +173,7 @@ let qrTimerId = null;
 let qrSecondsLeft = 600;
 
 function startFlow(order){
-  flow = { order, step:1, nickname:'', player:null, category:null, wallet:null, turnstileToken:null };
+  flow = { order, step:1, nickname:'', player:null, category:null, wallet:null };
   openModal();
   renderStep();
 }
@@ -280,7 +228,6 @@ function renderStep(){
 
 // ---- STEP 1: NICKNAME ----
 function renderNicknameStep(){
-  modalWidgetId = null;
   modalBox.innerHTML = `
     <div class="modal-head">
       <div style="flex:1">
@@ -292,15 +239,13 @@ function renderNicknameStep(){
     <div class="modal-body">
       ${stepIndicatorHTML()}
       ${itemRecapHTML()}
-      <div class="field-label">Username Minecraft</div>
+      <div class="field-label">Username ( Bedrock Pake _ )</div>
       <div class="nick-input-row">
-        <input type="text" class="nick-input" id="nickInput" placeholder="cth: Steve_Builder" maxlength="16" value="${flow.nickname}">
+        <input type="text" class="nick-input" id="nickInput" placeholder="cth: _bilpayy" maxlength="16" value="${flow.nickname}">
         <button class="nick-check-btn" id="nickCheckBtn" onclick="checkNickname()">Cek Nickname</button>
       </div>
       <div class="field-hint" id="nickHint">3–16 karakter, huruf/angka/underscore. Wajib dicek dulu sebelum lanjut.</div>
       <div id="playerCardSlot"></div>
-      <div class="field-label">Verifikasi Keamanan</div>
-      <div id="modalTurnstile" class="turnstile-box"></div>
       <div class="modal-actions">
         <button class="pixel-btn pixel-border" id="nickNextBtn" onclick="goStep(2)" disabled style="opacity:.5;">Lanjutkan →</button>
       </div>
@@ -309,15 +254,10 @@ function renderNicknameStep(){
   document.getElementById('nickInput').addEventListener('keydown', e=>{
     if(e.key === 'Enter'){ e.preventDefault(); checkNickname(); }
   });
-  renderModalTurnstile();
   if(flow.player){
     renderPlayerCard(flow.player);
+    setNextEnabled(true);
   }
-  checkNicknameStepReady();
-}
-
-function checkNicknameStepReady(){
-  setNextEnabled(!!flow.player && !!flow.turnstileToken);
 }
 
 function setNextEnabled(on){
@@ -371,7 +311,7 @@ async function checkNickname(){
       flow.player = { name: p.username, uuid: p.id, avatar: p.avatar || ('https://crafatar.com/avatars/' + p.id + '?overlay') };
       hint.textContent = 'Nickname ditemukan dan valid.';
       renderPlayerCard(flow.player);
-      checkNicknameStepReady();
+      setNextEnabled(true);
     } else {
       input.classList.add('error');
       hint.classList.add('error');
@@ -390,7 +330,7 @@ function skipVerify(e){
   e.preventDefault();
   flow.player = { name: flow.nickname, uuid:null, avatar:'https://mc-heads.net/avatar/' + encodeURIComponent(flow.nickname) + '/100' };
   renderPlayerCard(flow.player);
-  checkNicknameStepReady();
+  setNextEnabled(true);
 }
 
 // ---- STEP 2: CATEGORY (QRIS atau E-Wallet) ----
@@ -596,4 +536,3 @@ showTab('vote', document.querySelector('.tab-btn.active'));
 observeReveals();
 fetchServerStatus();
 setInterval(fetchServerStatus, 60000); // refresh tiap 60 detik
-renderVoteTurnstile();
